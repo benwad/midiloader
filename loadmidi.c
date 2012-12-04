@@ -5,12 +5,21 @@ enum TimeDivType {
 	framesPerSecond = 1,
 };
 
+struct FramesPerSecond {
+	unsigned short smpteFrames;
+	unsigned short ticksPerFrame;
+} FramesPerSecond;
+
+union TimeDivision {
+	struct FramesPerSecond framesPerSecond;
+	unsigned short ticksPerBeat;
+} TimeDivision;
+
 struct FileInfo {
 	unsigned short formatType;
 	unsigned short numTracks;
-	enum TimeDivType timeDivisionType;
-	unsigned short timeDivisionValue;
-};
+	union TimeDivision timeDivision;
+} FileInfo;
 
 void SwapEndianness32( unsigned int *num )
 {
@@ -47,6 +56,29 @@ void PrintCharBuffer( unsigned char* buffer, int size )
 	printf("\n");
 }
 
+union TimeDivision GetTimeDivision( unsigned short tDivData )
+{
+	enum TimeDivType timeDivisionType = GetTimeDivisionType(tDivData);
+	union TimeDivision timeDivision;
+
+	if (timeDivisionType == framesPerSecond)
+	{
+		struct FramesPerSecond fpsData;
+		fpsData.smpteFrames = (tDivData & 0x7F00) >> 8;
+		fpsData.ticksPerFrame = (tDivData & 0x00FF);
+
+		timeDivision.framesPerSecond = fpsData;
+	}
+	else if (timeDivisionType == ticksPerBeat)
+	{
+		unsigned short numTicks = (tDivData & 0x7FFF);
+
+		timeDivision.ticksPerBeat = numTicks;
+	}
+
+	return timeDivision;
+}
+
 int LoadMidiFile( const char* filename )
 {
 	FILE* f = fopen(filename, "rb");
@@ -68,14 +100,8 @@ int LoadMidiFile( const char* filename )
 	unsigned int sizebuffer[1];
 
 	n = fread(sizebuffer, sizeof(unsigned int), 1, f);
-
-	// unsigned int chunkSize = (*sizebuffer >> 8) | (*sizebuffer << 8);
+	
 	SwapEndianness32(sizebuffer);
-
-	printf("Result: %i\n", n);
-	printf("Size of unsigned int: %i\n", (int)sizeof(unsigned int));
-	printf("Size of unsigned short: %i\n", (int)sizeof(unsigned short));
-	printf("Chunk size: 0x%x\n", *sizebuffer);
 
 	unsigned short headerInfo[*sizebuffer / sizeof(unsigned short)];
 	n = fread(headerInfo, *sizebuffer, 1, f);
@@ -87,15 +113,21 @@ int LoadMidiFile( const char* filename )
 
 	struct FileInfo fileInfo;
 
-	printf("Result: %i\n", n);
 	fileInfo.formatType = headerInfo[0];
 	fileInfo.numTracks = headerInfo[1];
-	fileInfo.timeDivisionType = GetTimeDivisionType(headerInfo[2]);
-	fileInfo.timeDivisionValue = (headerInfo[2] & 0x7FFF);
+	fileInfo.timeDivision = GetTimeDivision(headerInfo[2]);
 
 	printf("Format type: %i\n", fileInfo.formatType);
 	printf("Num tracks: %i\n", fileInfo.numTracks);
-	printf("Time division: %s\n", (fileInfo.timeDivisionType == framesPerSecond) ? "framesPerSecond" : "ticksPerBeat");
+
+	if (fileInfo.timeDivision.ticksPerBeat)
+		printf("Time division: %i ticks per beat\n", fileInfo.timeDivision.ticksPerBeat);
+	else
+		printf("Time division: %i SMPTE frames per second, %i ticks per frame", fileInfo.timeDivision.framesPerSecond.smpteFrames,
+																				fileInfo.timeDivision.framesPerSecond.ticksPerFrame);
+
+
+
 
 	fclose(f);
 
