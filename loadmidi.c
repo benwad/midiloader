@@ -8,7 +8,8 @@ enum TimeDivType {
 struct FileInfo {
 	unsigned short formatType;
 	unsigned short numTracks;
-	enum TimeDivType timeDivision;
+	enum TimeDivType timeDivisionType;
+	unsigned short timeDivisionValue;
 };
 
 void SwapEndianness32( unsigned int *num )
@@ -89,11 +90,12 @@ int LoadMidiFile( const char* filename )
 	printf("Result: %i\n", n);
 	fileInfo.formatType = headerInfo[0];
 	fileInfo.numTracks = headerInfo[1];
-	fileInfo.timeDivision = GetTimeDivisionType(headerInfo[2]);
+	fileInfo.timeDivisionType = GetTimeDivisionType(headerInfo[2]);
+	fileInfo.timeDivisionValue = (headerInfo[2] & 0x7FFF);
 
 	printf("Format type: %i\n", fileInfo.formatType);
 	printf("Num tracks: %i\n", fileInfo.numTracks);
-	printf("Time division: %s\n", (fileInfo.timeDivision == framesPerSecond) ? "framesPerSecond" : "ticksPerBeat");
+	printf("Time division: %s\n", (fileInfo.timeDivisionType == framesPerSecond) ? "framesPerSecond" : "ticksPerBeat");
 
 	fclose(f);
 
