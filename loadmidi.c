@@ -1,3 +1,8 @@
+/*
+	loadmidi.c : 	Utilities for loading MIDI files, along with
+					data structures for storing the data
+*/
+
 #include "stdio.h"
 
 enum TimeDivType {
@@ -18,14 +23,15 @@ union TimeDivision {
 struct FileInfo {
 	unsigned short formatType;
 	unsigned short numTracks;
+	enum TimeDivType timeDivisionType;
 	union TimeDivision timeDivision;
 } FileInfo;
 
 void SwapEndianness32( unsigned int *num )
 {
-	unsigned int swapped = ((*num>>24) & 0xff) |
-							((*num<<8) & 0xff0000) |
-							((*num>>8) & 0xff00) |
+	unsigned int swapped = ((*num>>24) & 0x000000ff) |
+							((*num<<8) & 0xff000000) |
+							((*num>>8) & 0xff000000) |
 							((*num<<24) & 0xff000000);
 
 	*num = swapped;
@@ -100,7 +106,7 @@ int LoadMidiFile( const char* filename )
 	unsigned int sizebuffer[1];
 
 	n = fread(sizebuffer, sizeof(unsigned int), 1, f);
-	
+
 	SwapEndianness32(sizebuffer);
 
 	unsigned short headerInfo[*sizebuffer / sizeof(unsigned short)];
@@ -115,6 +121,7 @@ int LoadMidiFile( const char* filename )
 
 	fileInfo.formatType = headerInfo[0];
 	fileInfo.numTracks = headerInfo[1];
+	fileInfo.timeDivisionType = GetTimeDivisionType(headerInfo[2]);
 	fileInfo.timeDivision = GetTimeDivision(headerInfo[2]);
 
 	printf("Format type: %i\n", fileInfo.formatType);
@@ -126,8 +133,15 @@ int LoadMidiFile( const char* filename )
 		printf("Time division: %i SMPTE frames per second, %i ticks per frame", fileInfo.timeDivision.framesPerSecond.smpteFrames,
 																				fileInfo.timeDivision.framesPerSecond.ticksPerFrame);
 
+	n = fread(buffer, sizeof(unsigned char)*4, 1, f);
 
+	PrintCharBuffer(buffer, 4);
 
+	n = fread(sizebuffer, sizeof(unsigned int), 1, f);
+
+	SwapEndianness32(sizebuffer);
+
+	printf("Track data size: %u\n", *sizebuffer);
 
 	fclose(f);
 
