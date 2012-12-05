@@ -85,6 +85,65 @@ union TimeDivision GetTimeDivision( unsigned short tDivData )
 	return timeDivision;
 }
 
+unsigned long ReadVarLen( FILE* f )
+{
+	unsigned long value;
+	unsigned char c;
+
+	if ((value = fgetc(f)) & 0x80)
+	{
+		value &= 0x7F;
+		do
+		{
+			value = (value << 7) + ((c = getc(f)) & 0x7F);
+		} while (c & 0x80);
+	}
+
+	return value;
+}
+
+void GetMetaEvent(FILE* f)
+{
+	unsigned char eventType = fgetc(f);
+
+	if (eventType == 0x51)
+	{
+		// Event is a 'set tempo' event
+		// something is wrong here: Mario theme comes out as 303bpm
+		unsigned char meBuffer[3];
+		int res = fread( meBuffer, sizeof(unsigned char)*3, 1, f );
+
+		// unsigned int bufferVal = (meBuffer[2] +
+		// 							(meBuffer[1] << 8) + 
+		// 							(meBuffer[0] << 16));
+
+		unsigned int bufferVal = (meBuffer[2] +
+									(meBuffer[1] << 8) + 
+									(meBuffer[0] << 16));
+
+		unsigned int msPerMin = 60000000;
+		unsigned int bpm = msPerMin / bufferVal;
+		printf("bpm: %u, bufferVal: %u\n", bpm, bufferVal);
+	}
+}
+
+unsigned long GetMidiLength( FILE* f )
+{
+	int done = 0;
+	unsigned long val = 0;
+
+	while (!done)
+	{
+		unsigned char byte = fgetc(f);
+		val |= byte & 0x7F;
+
+		if (byte & 0x80) val <<= 7;
+		else done = 1;
+	}
+
+	return val;
+}
+
 int LoadMidiFile( const char* filename )
 {
 	FILE* f = fopen(filename, "rb");
@@ -143,6 +202,32 @@ int LoadMidiFile( const char* filename )
 
 	printf("Track data size: %u\n", *sizebuffer);
 
+	unsigned char trackdata[*sizebuffer];
+
+	for (int i=0; i < *sizebuffer; ++i)
+	{
+		printf("MIDI length: %lu\n", GetMidiLength(f));
+
+		unsigned char theByte = fgetc(f);
+		printf("0x%2x\n", theByte);
+		if (theByte == 0xFF)
+			GetMetaEvent(f);
+
+		// if (!(theByte & 0x80))
+		// 	printf("End...\n");
+		// else if (theByte == 0xFF)
+		// 	GetMetaEvent(f);
+	}
+
+	// unsigned long vlenvalue = ReadVarLen(f);
+	// printf("Vlen value: %lx\n", vlenvalue);
+
+	// unsigned char eventbuffer[3];
+	// printf("size of unsigned char: %i\n", (int)sizeof(unsigned char));
+	// n = fread(eventbuffer, sizeof(unsigned short), 1, f);
+
+	// printf("Event type: 0x%x, 0x%x\n", (eventbuffer[0] & 0x0f), ((eventbuffer[0] & 0xf0) >> 4));
+
 	fclose(f);
 
 	return 0;
@@ -151,8 +236,8 @@ int LoadMidiFile( const char* filename )
 
 int main( int argc, char* argv[] )
 {
-	if (argc < 2)
-		LoadMidiFile("/Users/bwadsworth/Documents/Dev/Snippets/midi/SMB1-Theme.mid");
+	if (argc < 2)	// For testing: Super Mario Bros theme!
+		LoadMidiFile("/Users/bwadsworth/Documents/Dev/Snippets/midiloader/SMB1-Theme.mid");
 	else
 		LoadMidiFile(argv[1]);
 
