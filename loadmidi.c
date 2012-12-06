@@ -22,6 +22,11 @@ struct TimeSignature {
 	unsigned short notesPerQuarterNote;
 } TimeSignature;
 
+struct KeySignature {
+	unsigned char sf;
+	unsigned char mi;
+} KeySignature;
+
 union TimeDivision {
 	struct FramesPerSecond framesPerSecond;
 	unsigned short ticksPerBeat;
@@ -134,7 +139,7 @@ void GetMetaEvent(FILE* f)
 	else if (eventType == 0x58)	// Time signature
 	{
 		unsigned char size = fgetc(f);
-		printf("Expecting 0x04, got 0x%2x\n", size);
+		printf("Time signature size: expecting 0x04, got 0x%2x\n", size);
 
 		unsigned char buffer[size];
 
@@ -150,6 +155,32 @@ void GetMetaEvent(FILE* f)
 		ts.clocksPerClick = (unsigned short)buffer[2];
 		ts.notesPerQuarterNote = (unsigned short)buffer[3];
 
+		unsigned int actualDenominator = 1;
+
+		for (int i=0; i < ts.denominator; ++i)	// calculate actual denominator from exponent
+		{
+			actualDenominator *= 2;
+		}
+
+		printf("Time signature: %u/%u (%u clocks per click, %u notes per 1/4 note)\n", ts.numerator, actualDenominator, ts.clocksPerClick, ts.notesPerQuarterNote );
+
+	}
+	else if (eventType == 0x59)	// Key signature
+	{
+		unsigned char size = fgetc(f);
+		printf("Key signature size: expecting 0x02, got 0x%2x\n", size);
+
+		unsigned char buffer[size];
+
+		if (!fread(buffer, size, 1, f))
+		{
+			printf("Error reading file!\n");
+			return;
+		}
+
+		struct KeySignature ks;
+		ks.sf = buffer[0];
+		ks.mi = buffer[1];
 	}
 	else
 	{
@@ -245,6 +276,7 @@ int LoadMidiFile( const char* filename )
 
 		unsigned char theByte = fgetc(f);
 		printf("0x%2x\n", theByte);
+
 		if (theByte == 0xFF)
 			GetMetaEvent(f);
 
