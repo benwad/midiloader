@@ -15,6 +15,13 @@ struct FramesPerSecond {
 	unsigned short ticksPerFrame;
 } FramesPerSecond;
 
+struct TimeSignature {
+	unsigned short numerator;
+	unsigned short denominator;
+	unsigned short clocksPerClick;
+	unsigned short notesPerQuarterNote;
+} TimeSignature;
+
 union TimeDivision {
 	struct FramesPerSecond framesPerSecond;
 	unsigned short ticksPerBeat;
@@ -106,40 +113,68 @@ void GetMetaEvent(FILE* f)
 {
 	unsigned char eventType = fgetc(f);
 
-	if (eventType == 0x51)
+	if (eventType == 0x51) // Set tempo
 	{
-		// Event is a 'set tempo' event
-		// something is wrong here: Mario theme comes out as 303bpm
+		unsigned char size = fgetc(f); // always 3
+		printf("Expecting 0x03, got 0x%2x\n", size);
+
 		unsigned char meBuffer[3];
 		int res = fread( meBuffer, sizeof(unsigned char)*3, 1, f );
-
-		// unsigned int bufferVal = (meBuffer[2] +
-		// 							(meBuffer[1] << 8) + 
-		// 							(meBuffer[0] << 16));
 
 		unsigned int bufferVal = (meBuffer[2] +
 									(meBuffer[1] << 8) + 
 									(meBuffer[0] << 16));
 
+		printf("SetTempo data: 0x%2x%2x%2x\n", meBuffer[0], meBuffer[1], meBuffer[2]);
+
 		unsigned int msPerMin = 60000000;
 		unsigned int bpm = msPerMin / bufferVal;
 		printf("bpm: %u, bufferVal: %u\n", bpm, bufferVal);
 	}
+	else if (eventType == 0x58)	// Time signature
+	{
+		unsigned char size = fgetc(f);
+		printf("Expecting 0x04, got 0x%2x\n", size);
+
+		unsigned char buffer[size];
+
+		if (!fread(buffer, size, 1, f))
+		{
+			printf("Error reading file!\n");
+			return;
+		}
+
+		struct TimeSignature ts;
+		ts.numerator = (unsigned short)buffer[0];
+		ts.denominator = (unsigned short)buffer[1];
+		ts.clocksPerClick = (unsigned short)buffer[2];
+		ts.notesPerQuarterNote = (unsigned short)buffer[3];
+
+	}
+	else
+	{
+		printf("MetaEvent %2x not found\n", eventType);
+	}
 }
 
-unsigned long GetMidiLength( FILE* f )
+unsigned long GetVLen( FILE* f )
 {
 	int done = 0;
 	unsigned long val = 0;
 
+	printf("VLen data: 0x");
+
 	while (!done)
 	{
 		unsigned char byte = fgetc(f);
+		printf("%2x", byte);
 		val |= byte & 0x7F;
 
 		if (byte & 0x80) val <<= 7;
 		else done = 1;
 	}
+
+	printf("\n");
 
 	return val;
 }
@@ -206,7 +241,7 @@ int LoadMidiFile( const char* filename )
 
 	for (int i=0; i < *sizebuffer; ++i)
 	{
-		printf("MIDI length: %lu\n", GetMidiLength(f));
+		printf("Event dTime: %lu\n", GetVLen(f));
 
 		unsigned char theByte = fgetc(f);
 		printf("0x%2x\n", theByte);
