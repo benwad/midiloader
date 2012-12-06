@@ -23,9 +23,14 @@ struct TimeSignature {
 } TimeSignature;
 
 struct KeySignature {
-	unsigned char sf;
-	unsigned char mi;
+	signed short sf;
+	signed short mi;
 } KeySignature;
+
+void KeySignature_Print( struct KeySignature ks )
+{
+
+}
 
 union TimeDivision {
 	struct FramesPerSecond framesPerSecond;
@@ -134,7 +139,7 @@ void GetMetaEvent(FILE* f)
 
 		unsigned int msPerMin = 60000000;
 		unsigned int bpm = msPerMin / bufferVal;
-		printf("bpm: %u, bufferVal: %u\n", bpm, bufferVal);
+		printf("bpm: %u\n", bpm);
 	}
 	else if (eventType == 0x58)	// Time signature
 	{
@@ -179,8 +184,20 @@ void GetMetaEvent(FILE* f)
 		}
 
 		struct KeySignature ks;
-		ks.sf = buffer[0];
-		ks.mi = buffer[1];
+		ks.sf = (signed short)buffer[0];
+		ks.mi = (signed short)buffer[1];
+
+		printf("Key signature: 0x%2x, 0x%2x\n", ks.sf, ks.mi);
+	}
+	else if (eventType == 0x2F)
+	{
+		printf("End of track!\n");
+
+		fgetc(f);
+	}
+	else if (eventType == 0x7F)	// Sequencer-specific meta-event
+	{
+		printf("Sequencer-specific (no default behaviour)\n");
 	}
 	else
 	{
@@ -267,8 +284,6 @@ int LoadMidiFile( const char* filename )
 	SwapEndianness32(sizebuffer);
 
 	printf("Track data size: %u\n", *sizebuffer);
-
-	unsigned char trackdata[*sizebuffer];
 
 	for (int i=0; i < *sizebuffer; ++i)
 	{
