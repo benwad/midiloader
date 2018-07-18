@@ -112,131 +112,15 @@ Event* GetMetaEvent(FILE* f)
 	printf("GetMetaEvent: 0x%2x\n", event->type);
 	printf("Size: %i\n", event->size);
 
-	if (!fread(event->data, sizeof(unsigned char), event->size, f))
-	{
-		printf("Error reading file!\n");
-		return NULL;
+	if (event->size > 0) {
+		if (!fread(event->data, sizeof(unsigned char), event->size, f))
+		{
+			printf("Error reading file!\n");
+			return NULL;
+		}
 	}
 
 	return event;
-
-	if (event->type == 0x03) // Track/sequence name
-	{
-		unsigned char buffer[event->size];
-		buffer[event->size] = '\0';
-
-		if (!fread(buffer, sizeof(unsigned char), event->size, f))
-		{
-			printf("Error reading file!\n");
-			return NULL;
-		}
-
-		printf("Track/sequence name: %s\n", buffer);
-	}
-	else if (event->type == 0x04) // Instrument name
-	{
-		unsigned char buffer[event->size];
-
-		if (!fread(buffer, event->size, 1, f))
-		{
-			printf("Error reading file!\n");
-			return NULL;
-		}
-
-		printf("Instrument name: %s\n", buffer);
-	}
-	else if (event->type == 0x05) // Lyrics
-	{
-		unsigned char buffer[event->size];
-
-		if (!fread(buffer, event->size, 1, f))
-		{
-			printf("Error reading file!\n");
-			return NULL;
-		}
-
-		printf("Lyrics:\n");
-		printf("%s\n", buffer);
-	}
-	else if (event->type == 0x51) // Set tempo
-	{
-		if (event->size != 0x03)
-			printf("Expecting 0x03, got 0x%2x\n", event->size);
-
-		unsigned char meBuffer[event->size];
-		int res = fread( meBuffer, sizeof(unsigned char)*3, 1, f );
-
-		unsigned int bufferVal = (meBuffer[2] +
-									(meBuffer[1] << 8) + 
-									(meBuffer[0] << 16));
-
-		/*printf("SetTempo data: 0x%2x%2x%2x\n", meBuffer[0], meBuffer[1], meBuffer[2]);*/
-
-		unsigned int msPerMin = 60000000;
-		unsigned int bpm = msPerMin / bufferVal;
-		printf("bpm: %u\n", bpm);
-	}
-	else if (event->type == 0x58)	// Time signature
-	{
-		if (event->size != 0x04)
-			printf("Time signature size: expecting 0x04, got 0x%2x\n", event->size);
-
-		unsigned char buffer[event->size];
-
-		if (!fread(buffer, event->size, 1, f))
-		{
-			printf("Error reading file!\n");
-			return NULL;
-		}
-
-		struct TimeSignature ts;
-		ts.numerator = (unsigned short)buffer[0];
-		ts.denominator = (unsigned short)buffer[1];
-		ts.clocksPerClick = (unsigned short)buffer[2];
-		ts.notesPerQuarterNote = (unsigned short)buffer[3];
-
-		unsigned int actualDenominator = 1;
-
-		for (int i=0; i < ts.denominator; ++i)	// calculate actual denominator from exponent
-		{
-			actualDenominator *= 2;
-		}
-
-		printf("Time signature: %u/%u (%u clocks per click, %u notes per 1/4 note)\n", ts.numerator, actualDenominator, ts.clocksPerClick, ts.notesPerQuarterNote );
-
-	}
-	else if (event->type == 0x59)	// Key signature
-	{
-		if (event->size != 0x02)
-			printf("Key signature size: expecting 0x02, got 0x%2x\n", event->size);
-
-		unsigned char buffer[event->size];
-
-		if (!fread(buffer, event->size, 1, f))
-		{
-			printf("Error reading Meta event!\n");
-			return NULL;
-		}
-
-		struct KeySignature ks;
-		ks.sf = (signed short)buffer[0];
-		ks.mi = (signed short)buffer[1];
-
-		printf("Key signature: 0x%2x, 0x%2x\n", ks.sf, ks.mi);
-	}
-	else if (event->type == 0x2F) // End of track
-	{
-		printf("End of track!\n");
-	}
-	else if (event->type == 0x7F)	// Sequencer-specific meta-event
-	{
-		printf("Sequencer-specific (no default behaviour)\n");
-	}
-	
-	else
-	{
-		printf("MetaEvent %2x not found\n", event->type);
-	}
 }
 
 Event* GetF0SysexEvent(FILE* f)
