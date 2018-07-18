@@ -3,35 +3,16 @@
 			data structures for storing the data
 */
 
-#include "stdio.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "loadmidi.h"
+#include "events.h"
 
-
-enum TimeDivType {
-	ticksPerBeat = 0,
-	framesPerSecond = 1,
-};
-
-struct FramesPerSecond {
-	unsigned short smpteFrames;
-	unsigned short ticksPerFrame;
-} FramesPerSecond;
-
-struct TimeSignature {
-	unsigned short numerator;
-	unsigned short denominator;
-	unsigned short clocksPerClick;
-	unsigned short notesPerQuarterNote;
-} TimeSignature;
-
-struct KeySignature {
-	signed short sf;
-	signed short mi;
-} KeySignature;
 
 void KeySignature_Print( struct KeySignature ks )
 {
-
+	
 }
 
 union TimeDivision {
@@ -121,60 +102,68 @@ unsigned long ReadVarLen( FILE* f )
 	return value;
 }
 
-void GetMetaEvent(FILE* f)
+Event* GetMetaEvent(FILE* f)
 {
-	unsigned char eventType = fgetc(f);
+	Event* event = (Event *)malloc(sizeof(Event));
+	event->type = fgetc(f);
+	event->size = fgetc(f);
+	event->data = malloc(event->size);
 
-	if (eventType == 0x03) // Track/sequence name
+	printf("GetMetaEvent: 0x%2x\n", event->type);
+	printf("Size: %i\n", event->size);
+
+	if (!fread(event->data, sizeof(unsigned char), event->size, f))
 	{
-		unsigned char size = fgetc(f);
+		printf("Error reading file!\n");
+		return NULL;
+	}
 
-		unsigned char buffer[size];
+	return event;
 
-		if (!fread(buffer, size, 1, f))
+	if (event->type == 0x03) // Track/sequence name
+	{
+		unsigned char buffer[event->size];
+		buffer[event->size] = '\0';
+
+		if (!fread(buffer, sizeof(unsigned char), event->size, f))
 		{
 			printf("Error reading file!\n");
-			return;
+			return NULL;
 		}
 
 		printf("Track/sequence name: %s\n", buffer);
 	}
-	else if (eventType == 0x04) // Instrument name
+	else if (event->type == 0x04) // Instrument name
 	{
-		unsigned char size = fgetc(f);
+		unsigned char buffer[event->size];
 
-		unsigned char buffer[size];
-
-		if (!fread(buffer, size, 1, f))
+		if (!fread(buffer, event->size, 1, f))
 		{
 			printf("Error reading file!\n");
-			return;
+			return NULL;
 		}
 
 		printf("Instrument name: %s\n", buffer);
 	}
-	else if (eventType == 0x05) // Lyrics
+	else if (event->type == 0x05) // Lyrics
 	{
-		unsigned char size = fgetc(f);
+		unsigned char buffer[event->size];
 
-		unsigned char buffer[size];
-
-		if (!fread(buffer, size, 1, f))
+		if (!fread(buffer, event->size, 1, f))
 		{
 			printf("Error reading file!\n");
-			return;
+			return NULL;
 		}
 
 		printf("Lyrics:\n");
 		printf("%s\n", buffer);
 	}
-	else if (eventType == 0x51) // Set tempo
+	else if (event->type == 0x51) // Set tempo
 	{
-		unsigned char size = fgetc(f); // always 3
-		if (size != 0x03)
-			printf("Expecting 0x03, got 0x%2x\n", size);
+		if (event->size != 0x03)
+			printf("Expecting 0x03, got 0x%2x\n", event->size);
 
-		unsigned char meBuffer[3];
+		unsigned char meBuffer[event->size];
 		int res = fread( meBuffer, sizeof(unsigned char)*3, 1, f );
 
 		unsigned int bufferVal = (meBuffer[2] +
@@ -187,19 +176,17 @@ void GetMetaEvent(FILE* f)
 		unsigned int bpm = msPerMin / bufferVal;
 		printf("bpm: %u\n", bpm);
 	}
-	else if (eventType == 0x58)	// Time signature
+	else if (event->type == 0x58)	// Time signature
 	{
-		unsigned char size = fgetc(f);
+		if (event->size != 0x04)
+			printf("Time signature size: expecting 0x04, got 0x%2x\n", event->size);
 
-		if (size != 0x04)
-			printf("Time signature size: expecting 0x04, got 0x%2x\n", size);
+		unsigned char buffer[event->size];
 
-		unsigned char buffer[size];
-
-		if (!fread(buffer, size, 1, f))
+		if (!fread(buffer, event->size, 1, f))
 		{
 			printf("Error reading file!\n");
-			return;
+			return NULL;
 		}
 
 		struct TimeSignature ts;
@@ -218,19 +205,17 @@ void GetMetaEvent(FILE* f)
 		printf("Time signature: %u/%u (%u clocks per click, %u notes per 1/4 note)\n", ts.numerator, actualDenominator, ts.clocksPerClick, ts.notesPerQuarterNote );
 
 	}
-	else if (eventType == 0x59)	// Key signature
+	else if (event->type == 0x59)	// Key signature
 	{
-		unsigned char size = fgetc(f);
+		if (event->size != 0x02)
+			printf("Key signature size: expecting 0x02, got 0x%2x\n", event->size);
 
-		if (size != 0x02)
-			printf("Key signature size: expecting 0x02, got 0x%2x\n", size);
+		unsigned char buffer[event->size];
 
-		unsigned char buffer[size];
-
-		if (!fread(buffer, size, 1, f))
+		if (!fread(buffer, event->size, 1, f))
 		{
 			printf("Error reading Meta event!\n");
-			return;
+			return NULL;
 		}
 
 		struct KeySignature ks;
@@ -239,53 +224,71 @@ void GetMetaEvent(FILE* f)
 
 		printf("Key signature: 0x%2x, 0x%2x\n", ks.sf, ks.mi);
 	}
-	else if (eventType == 0x2F) // End of track
+	else if (event->type == 0x2F) // End of track
 	{
 		printf("End of track!\n");
-
-		fgetc(f);
 	}
-	else if (eventType == 0x7F)	// Sequencer-specific meta-event
+	else if (event->type == 0x7F)	// Sequencer-specific meta-event
 	{
 		printf("Sequencer-specific (no default behaviour)\n");
 	}
 	
 	else
 	{
-		printf("MetaEvent %2x not found\n", eventType);
+		printf("MetaEvent %2x not found\n", event->type);
 	}
 }
 
-void GetF0SysexEvent(FILE* f)
+Event* GetF0SysexEvent(FILE* f)
 {
-	unsigned char size = fgetc(f);
+	printf("GetF0SysexEvent\n");
 
-	unsigned char buffer[size];
+	unsigned int size = fgetc(f);
+
+	unsigned char* buffer = (unsigned char *)malloc(size);
 
 	if (!fread(buffer, size, 1, f))
 	{
 		printf("Error reading F0 Sysex event!\n");
-		return;
+		free(buffer);
+		return NULL;
 	}
 
 	printf("Sysex data:\n");
 	printf("%s\n", buffer);
+
+	Event* event = (Event *)malloc(sizeof(Event));
+	event->type = 0xF0;
+	event->size = (unsigned int)size;
+	event->data = buffer;
+
+	return event;
 }
 
-void GetF7SysexEvent(FILE* f)
+Event* GetF7SysexEvent(FILE* f)
 {
-	unsigned char size = fgetc(f);
+	printf("GetF7SysexEvent\n");
 
-	unsigned char buffer[size];
+	unsigned int size = fgetc(f);
+
+	unsigned char* buffer = (unsigned char *)malloc(size);
 
 	if (!fread(buffer, size, 1, f))
 	{
 		printf("Error reading F7 Sysex event!\n");
-		return;
+		free(buffer);
+		return NULL;
 	}
 
 	printf("'Any' data:\n");
 	printf("%s\n", buffer);
+
+	Event* event = (Event *)malloc(sizeof(Event));
+	event->type = 0xF7;
+	event->size = (unsigned int)size;
+	event->data = buffer;
+
+	return event;
 }
 
 unsigned long GetVLen( FILE* f )
@@ -373,17 +376,21 @@ int LoadMidiFile( const char* filename )
 		printf("Event dTime: %lu\n", GetVLen(f));
 
 		unsigned char theByte = fgetc(f);
-		/*printf("0x%2x\n", theByte);*/
+
+		Event* event = NULL;
 
 		if (theByte == 0xFF)
-			GetMetaEvent(f);
+			event = GetMetaEvent(f);
 		else if (theByte == 0xF0)
-			GetF0SysexEvent(f);
+			event = GetF0SysexEvent(f);
 		else if (theByte == 0xF7)
-			GetF7SysexEvent(f);
+			event = GetF7SysexEvent(f);
 		else {
-			printf("Could not resolve event type: 0x%2x\n", theByte);
+			printf("Could not resolve event type: 0x%2x. Exiting...\n", theByte);
+			return 1;
 		}
+
+		PrintEvent(event);
 
 		// if (!(theByte & 0x80))
 		// 	printf("End...\n");
