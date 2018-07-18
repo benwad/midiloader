@@ -1,9 +1,11 @@
 /*
 	loadmidi.c : 	Utilities for loading MIDI files, along with
-					data structures for storing the data
+			data structures for storing the data
 */
 
 #include "stdio.h"
+#include "loadmidi.h"
+
 
 enum TimeDivType {
 	ticksPerBeat = 0,
@@ -47,9 +49,9 @@ struct FileInfo {
 void SwapEndianness32( unsigned int *num )
 {
 	unsigned int swapped = ((*num>>24) & 0x000000ff) |
-							((*num<<8) & 0xff000000) |
-							((*num>>8) & 0xff000000) |
-							((*num<<24) & 0xff000000);
+				((*num<<8) & 0xff000000) |
+				((*num>>8) & 0xff000000) |
+				((*num<<24) & 0xff000000);
 
 	*num = swapped;
 }
@@ -123,10 +125,54 @@ void GetMetaEvent(FILE* f)
 {
 	unsigned char eventType = fgetc(f);
 
-	if (eventType == 0x51) // Set tempo
+	if (eventType == 0x03) // Track/sequence name
+	{
+		unsigned char size = fgetc(f);
+
+		unsigned char buffer[size];
+
+		if (!fread(buffer, size, 1, f))
+		{
+			printf("Error reading file!\n");
+			return;
+		}
+
+		printf("Track/sequence name: %s\n", buffer);
+	}
+	else if (eventType == 0x04) // Instrument name
+	{
+		unsigned char size = fgetc(f);
+
+		unsigned char buffer[size];
+
+		if (!fread(buffer, size, 1, f))
+		{
+			printf("Error reading file!\n");
+			return;
+		}
+
+		printf("Instrument name: %s\n", buffer);
+	}
+	else if (eventType == 0x05) // Lyrics
+	{
+		unsigned char size = fgetc(f);
+
+		unsigned char buffer[size];
+
+		if (!fread(buffer, size, 1, f))
+		{
+			printf("Error reading file!\n");
+			return;
+		}
+
+		printf("Lyrics:\n");
+		printf("%s\n", buffer);
+	}
+	else if (eventType == 0x51) // Set tempo
 	{
 		unsigned char size = fgetc(f); // always 3
-		printf("Expecting 0x03, got 0x%2x\n", size);
+		if (size != 0x03)
+			printf("Expecting 0x03, got 0x%2x\n", size);
 
 		unsigned char meBuffer[3];
 		int res = fread( meBuffer, sizeof(unsigned char)*3, 1, f );
@@ -135,7 +181,7 @@ void GetMetaEvent(FILE* f)
 									(meBuffer[1] << 8) + 
 									(meBuffer[0] << 16));
 
-		printf("SetTempo data: 0x%2x%2x%2x\n", meBuffer[0], meBuffer[1], meBuffer[2]);
+		/*printf("SetTempo data: 0x%2x%2x%2x\n", meBuffer[0], meBuffer[1], meBuffer[2]);*/
 
 		unsigned int msPerMin = 60000000;
 		unsigned int bpm = msPerMin / bufferVal;
@@ -144,7 +190,9 @@ void GetMetaEvent(FILE* f)
 	else if (eventType == 0x58)	// Time signature
 	{
 		unsigned char size = fgetc(f);
-		printf("Time signature size: expecting 0x04, got 0x%2x\n", size);
+
+		if (size != 0x04)
+			printf("Time signature size: expecting 0x04, got 0x%2x\n", size);
 
 		unsigned char buffer[size];
 
@@ -173,13 +221,15 @@ void GetMetaEvent(FILE* f)
 	else if (eventType == 0x59)	// Key signature
 	{
 		unsigned char size = fgetc(f);
-		printf("Key signature size: expecting 0x02, got 0x%2x\n", size);
+
+		if (size != 0x02)
+			printf("Key signature size: expecting 0x02, got 0x%2x\n", size);
 
 		unsigned char buffer[size];
 
 		if (!fread(buffer, size, 1, f))
 		{
-			printf("Error reading file!\n");
+			printf("Error reading Meta event!\n");
 			return;
 		}
 
@@ -189,7 +239,7 @@ void GetMetaEvent(FILE* f)
 
 		printf("Key signature: 0x%2x, 0x%2x\n", ks.sf, ks.mi);
 	}
-	else if (eventType == 0x2F)
+	else if (eventType == 0x2F) // End of track
 	{
 		printf("End of track!\n");
 
@@ -199,10 +249,43 @@ void GetMetaEvent(FILE* f)
 	{
 		printf("Sequencer-specific (no default behaviour)\n");
 	}
+	
 	else
 	{
 		printf("MetaEvent %2x not found\n", eventType);
 	}
+}
+
+void GetF0SysexEvent(FILE* f)
+{
+	unsigned char size = fgetc(f);
+
+	unsigned char buffer[size];
+
+	if (!fread(buffer, size, 1, f))
+	{
+		printf("Error reading F0 Sysex event!\n");
+		return;
+	}
+
+	printf("Sysex data:\n");
+	printf("%s\n", buffer);
+}
+
+void GetF7SysexEvent(FILE* f)
+{
+	unsigned char size = fgetc(f);
+
+	unsigned char buffer[size];
+
+	if (!fread(buffer, size, 1, f))
+	{
+		printf("Error reading F7 Sysex event!\n");
+		return;
+	}
+
+	printf("'Any' data:\n");
+	printf("%s\n", buffer);
 }
 
 unsigned long GetVLen( FILE* f )
@@ -273,7 +356,7 @@ int LoadMidiFile( const char* filename )
 		printf("Time division: %i ticks per beat\n", fileInfo.timeDivision.ticksPerBeat);
 	else
 		printf("Time division: %i SMPTE frames per second, %i ticks per frame", fileInfo.timeDivision.framesPerSecond.smpteFrames,
-																				fileInfo.timeDivision.framesPerSecond.ticksPerFrame);
+											fileInfo.timeDivision.framesPerSecond.ticksPerFrame);
 
 	n = fread(buffer, sizeof(unsigned char)*4, 1, f);
 
@@ -290,10 +373,17 @@ int LoadMidiFile( const char* filename )
 		printf("Event dTime: %lu\n", GetVLen(f));
 
 		unsigned char theByte = fgetc(f);
-		printf("0x%2x\n", theByte);
+		/*printf("0x%2x\n", theByte);*/
 
 		if (theByte == 0xFF)
 			GetMetaEvent(f);
+		else if (theByte == 0xF0)
+			GetF0SysexEvent(f);
+		else if (theByte == 0xF7)
+			GetF7SysexEvent(f);
+		else {
+			printf("Could not resolve event type: 0x%2x\n", theByte);
+		}
 
 		// if (!(theByte & 0x80))
 		// 	printf("End...\n");
@@ -301,27 +391,8 @@ int LoadMidiFile( const char* filename )
 		// 	GetMetaEvent(f);
 	}
 
-	// unsigned long vlenvalue = ReadVarLen(f);
-	// printf("Vlen value: %lx\n", vlenvalue);
-
-	// unsigned char eventbuffer[3];
-	// printf("size of unsigned char: %i\n", (int)sizeof(unsigned char));
-	// n = fread(eventbuffer, sizeof(unsigned short), 1, f);
-
-	// printf("Event type: 0x%x, 0x%x\n", (eventbuffer[0] & 0x0f), ((eventbuffer[0] & 0xf0) >> 4));
-
 	fclose(f);
 
 	return 0;
 
-}
-
-int main( int argc, char* argv[] )
-{
-	if (argc < 2)	// For testing: Super Mario Bros theme!
-		LoadMidiFile("/Users/bwadsworth/Documents/Dev/Snippets/midiloader/SMB1-Theme.mid");
-	else
-		LoadMidiFile(argv[1]);
-
-	return 0;
 }
