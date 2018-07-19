@@ -128,3 +128,35 @@ void PrintEvent(Event* event) {
 		}
 	}
 }
+
+union TimeDivision GetTimeDivision( unsigned short tDivData )
+{
+	enum TimeDivType timeDivisionType = GetTimeDivisionType(tDivData);
+	union TimeDivision timeDivision;
+
+	if (timeDivisionType == framesPerSecond)
+	{
+		struct FramesPerSecond fpsData;
+		fpsData.smpteFrames = (tDivData & 0x7F00) >> 8;
+		fpsData.ticksPerFrame = (tDivData & 0x00FF);
+
+		timeDivision.framesPerSecond = fpsData;
+	}
+	else if (timeDivisionType == ticksPerBeat)
+	{
+		unsigned short numTicks = (tDivData & 0x7FFF);
+
+		timeDivision.ticksPerBeat = numTicks;
+	}
+
+	return timeDivision;
+}
+
+enum TimeDivType GetTimeDivisionType( unsigned short timeDivData )
+{
+	if (timeDivData & 0x8000)
+		return framesPerSecond;
+	else
+		return ticksPerBeat;
+}
+

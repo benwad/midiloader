@@ -61,5 +61,8 @@ struct TimeSignature GetTimeSignature(unsigned char* buffer);
 struct KeySignature GetKeySignature(unsigned char* buffer);
 void PrintFileInfo(FileInfo* fileInfo);
 void PrintEvent(Event* event);
+union TimeDivision GetTimeDivision(unsigned short tDivData);
+enum TimeDivType GetTimeDivisionType(unsigned short timeDivData);
+
 
 #endif

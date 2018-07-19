@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "loadmidi.h"
+#include "loadmidi_old.h"
 
 
 int main( int argc, char* argv[] )

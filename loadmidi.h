@@ -2,6 +2,5 @@
 #define __LOADMIDI_H__
 
 int LoadMidiFile( const char* filename );
-int LoadMidiFileOld( const char* filename );
 
 #endif
