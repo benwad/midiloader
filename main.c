@@ -9,6 +9,9 @@ int main( int argc, char* argv[] )
 		/*LoadMidiFile("/Users/bwadsworth/Documents/Dev/Snippets/midiloader/SMB1-Theme.mid");*/
 		printf("Usage: ./loadmidi <filename>\n");
 	else
+		printf("======= OLD CODE ======\n");
+		LoadMidiFileOld(argv[1]);
+		printf("======= NEW CODE ======\n");
 		LoadMidiFile(argv[1]);
 
 	return 0;
