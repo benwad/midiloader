@@ -38,12 +38,13 @@ unsigned int GetMetaEvent(unsigned char *data, Event* event)
 {
 	printf("GetMetaEvent\n");
 	unsigned int offset = 0;
-	event->type = *(data++);
-	event->size = *(data++);
+	event->type = *(data + offset++);
+	event->size = *(data + offset++);
 	event->data = malloc(event->size);
 
-	memcpy(event->data, data, event->size);
+	memcpy(event->data, (data + offset), event->size);
 	offset += event->size;
+	data += event->size;
 
 	return offset;
 }
@@ -51,13 +52,32 @@ unsigned int GetMetaEvent(unsigned char *data, Event* event)
 unsigned int GetF0SysexEvent(unsigned char* data, Event* event)
 {
 	printf("GetF0SysexEvent\n");
-	return 0;
+	unsigned int offset = 0;
+	/*event->type = *(data + offset++);*/
+	event->type = 0xF0;
+	event->size = *(data + offset++);
+	event->data = malloc(event->size);
+
+	memcpy(event->data, (data + offset), event->size);
+	offset += event->size;
+	data += event->size;
+
+	return offset;
 }
 
 unsigned int GetF7SysexEvent(unsigned char* data, Event* event)
 {
 	printf("GetF7SysexEvent\n");
 	return 0;
+}
+
+unsigned int GetMidiEvent(unsigned char* data, Event* event)
+{
+	printf("GetMidiEvent\n");
+	unsigned int offset = 0;
+	unsigned char status = *(data + offset);
+	printf("MIDI event status byte = 0x%2x\n", status);
+	return offset;
 }
 
 
@@ -106,45 +126,56 @@ FileInfo* GetHeader( Chunk* chunk )
 
 unsigned int GetEvent( unsigned char* data, Event* event )
 {
-	unsigned char eventType = *(data++);
+	unsigned char eventType = *data;
 
 	switch(eventType) {
 		case 0xFF:
-			return GetMetaEvent(data, event);
+			return GetMetaEvent(data+1, event) + 1;
 		case 0xF0:
-			return GetF0SysexEvent(data, event);
+			return GetF0SysexEvent(data+1, event) + 1;
 		case 0xF7:
-			return GetF7SysexEvent(data, event);
+			return GetF7SysexEvent(data+1, event) + 1;
 		default: {
-			printf("Could not resolve event type: 0x%2x\n", eventType);
-			return 0;
+			return GetMidiEvent(data, event) + 1;
 		}
 	}
 }
 
 
-Track* GetTrack( Chunk* chunk )
+unsigned int GetTrack( unsigned char* data, Track* track )
 {
 	int finished = 0;
 	Event* currentEvent = NULL;
 	unsigned int offset = 0;
 
 	while (!finished) {
+		printf("Next 4 bytes: 0x%2x%2x%2x%2x\n",
+			(unsigned char)*(data+offset),
+			(unsigned char)*(data+offset+1),
+			(unsigned char)*(data+offset+2),
+			(unsigned char)*(data+offset+3)
+		);
 		unsigned long dTime;
-		offset += GetVLen(chunk->data + (offset * sizeof(unsigned char)), &dTime);
+		unsigned int vlenSize = GetVLen(data+offset, &dTime);
+		printf("vlenSize: %i\n", vlenSize);
 		printf("dTime: %lu\n", dTime);
-		printf("offset: %i\n", offset);
+		offset += vlenSize;
 		Event* newEvent = (Event *)malloc(sizeof(Event));
-		unsigned int eventSize = GetEvent(chunk->data + (offset * sizeof(unsigned char)), newEvent);
+		unsigned int eventSize = GetEvent((data + offset), newEvent);
+		/*printf("Event size: %i\n", eventSize);*/
+		/*printf("Event size: %i\n", newEvent->size);*/
 		offset += eventSize;
 		currentEvent = newEvent;
 		PrintEvent(currentEvent);
-		if ((!eventSize) || (offset >= chunk->length)) {
+		printf("\n");
+		if (currentEvent->type == 0x2F) {
+			// End of track
 			finished = 1;
+			offset += 1;
 		}
 	}
 
-	return NULL;
+	return offset;
 }
 
 
@@ -177,7 +208,9 @@ Chunk* LoadChunk( FILE* f )
 	else if (strcmp((const char *)chunk->type, "MTrk") == 0) {
 		// Track chunk
 		printf("Track chunk, size: %i\n", chunk->length);
-		Track* track = GetTrack(chunk);
+		Track track;
+		unsigned int trackSize = GetTrack(chunk->data, &track);
+		printf("Offset created by track: %i\n", trackSize);
 	}
 	else {
 		printf("Unknown chunk type: %s\n", chunk->type);

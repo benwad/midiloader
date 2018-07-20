@@ -121,6 +121,11 @@ void PrintEvent(Event* event) {
 			printf("Sequencer-specific (no default behaviour)\n");
 			return;
 		}
+		case 0x21: // MIDI Port
+		{
+			printf("MIDI port %i\n", (unsigned int)(*(event->data)));
+			return;
+		}
 		default:
 		{
 			printf("MetaEvent 0x%2x not found\n", event->type);
