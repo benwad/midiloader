@@ -148,38 +148,123 @@ void PrintSysexEvent(Event* event)
 }
 
 
+void PrintNoteOffEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int key = (unsigned int)event.data[0];
+	unsigned int velocity = (unsigned int)event.data[1];
+	printf("Note off. Channel: %i, key: %i, velocity: %i\n",
+		midiChannel,
+		key,
+		velocity
+	);
+}
+
+
+void PrintNoteOnEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int key = (unsigned int)event.data[0];
+	unsigned int velocity = (unsigned int)event.data[1];
+	printf("Note on. Channel: %i, key: %i, velocity: %i\n",
+		midiChannel,
+		key,
+		velocity
+	);
+}
+
+
+void PrintPolyphonicAftertouchEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int key = (unsigned int)event.data[0];
+	unsigned int pressure = (unsigned int)event.data[1];
+	printf("Polyphonic aftertouch. Channel: %i, key: %i, pressure: %i\n",
+		midiChannel,
+		key,
+		pressure
+	);
+}
+
+
+void PrintControllerChangeEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int controller = (unsigned int)event.data[0];
+	unsigned int value = (unsigned int)event.data[1];
+	printf("Controller change. Channel: %i, controller: %i, value: %i\n",
+		midiChannel,
+		controller,
+		value
+	);
+}
+
+
+void PrintProgramChangeEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int program = (unsigned int)event.data[0];
+	printf("Program change. Channel: %i, program: %i\n",
+		midiChannel,
+		program
+	);
+}
+
+
+void PrintChannelAftertouchEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int pressure = (unsigned int)event.data[0];
+	printf("Channel aftertouch. Channel: %i, pressure: %i\n",
+		midiChannel,
+		pressure
+	);
+}
+
+
+void PrintPitchBendEvent(Event event)
+{
+	unsigned int midiChannel = (unsigned int)(event.type & 0x0F);
+	unsigned int lsb = (unsigned int)event.data[0];
+	unsigned int msb = (unsigned int)event.data[1];
+	printf("Pitch bend. Channel: %i, lsb: %i, msb: %i\n",
+		midiChannel,
+		lsb,
+		msb
+	);
+}
+
+
 void PrintMidiEvent(Event* event)
 {
-	printf("MIDI event %02x\n", event->type);
-
 	unsigned char statusBits = (event->type & 0xF0);
 	switch (statusBits) {
 		case 0x80: {
-			printf("Note off\n");
+			PrintNoteOffEvent(*event);
 			break;
 		}
 		case 0x90: {
-			printf("Note on\n");
+			PrintNoteOnEvent(*event);
 			break;
 		}
 		case 0xA0: {
-			printf("Polyphonic aftertouch\n");
+			PrintPolyphonicAftertouchEvent(*event);
 			break;
 		}
 		case 0xB0: {
-			printf("Controller change\n");
+			PrintControllerChangeEvent(*event);
 			break;
 		}
 		case 0xC0: {
-			printf("Program change\n");
+			PrintProgramChangeEvent(*event);
 			break;
 		}
 		case 0xD0: {
-			printf("Channel aftertouch\n");
+			PrintChannelAftertouchEvent(*event);
 			break;
 		}
 		case 0xE0: {
-			printf("Pitch bend\n");
+			PrintPitchBendEvent(*event);
 			break;
 		}
 		default: {
