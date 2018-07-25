@@ -3,5 +3,6 @@
 
 void SwapEndianness32( unsigned int *num );
 void SwapEndianness16( unsigned short *num );
+void PrintBytes( unsigned char* data, unsigned int numBytes );
 
 #endif

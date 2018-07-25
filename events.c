@@ -56,8 +56,9 @@ void PrintFileInfo(FileInfo* fileInfo)
 }
 
 
-void PrintEvent(Event* event) {
-	switch(event->type) {
+void PrintMetaEvent(Event* event)
+{
+	switch(event->subtype) {
 		case 0x03: // Track name
 		{
 			unsigned char* name = malloc(event->size + 1);
@@ -128,8 +129,103 @@ void PrintEvent(Event* event) {
 		}
 		default:
 		{
-			printf("MetaEvent 0x%2x not found\n", event->type);
+			printf("MetaEvent 0x%2x not found\n", event->subtype);
 			return;
+		}
+	}
+}
+
+
+void PrintSysexEvent(Event* event)
+{
+	printf("%02x SysEx event: 0x", event->type);
+	for (int i=0; i < event->size; i++)
+	{
+		printf("%02x", *(event->data + i));
+	}
+
+	printf("\n");
+}
+
+
+void PrintMidiEvent(Event* event)
+{
+	printf("MIDI event %02x\n", event->type);
+
+	unsigned char statusBits = (event->type & 0xF0);
+	switch (statusBits) {
+		case 0x80: {
+			printf("Note off\n");
+			break;
+		}
+		case 0x90: {
+			printf("Note on\n");
+			break;
+		}
+		case 0xA0: {
+			printf("Polyphonic aftertouch\n");
+			break;
+		}
+		case 0xB0: {
+			printf("Controller change\n");
+			break;
+		}
+		case 0xC0: {
+			printf("Program change\n");
+			break;
+		}
+		case 0xD0: {
+			printf("Channel aftertouch\n");
+			break;
+		}
+		case 0xE0: {
+			printf("Pitch bend\n");
+			break;
+		}
+		default: {
+			printf("Unknown MIDI event type: %02x\n", event->type);
+			break;
+		}
+	}
+}
+
+
+unsigned int SizeForMidiEvent(Event event)
+{
+	/* First 4 bits of event type are the 'status' */
+	unsigned char statusBits = (event.type & 0xF0);
+
+	switch (statusBits) {
+		case 0x80:
+			return 2;
+		case 0x90:
+			return 2;
+		case 0xA0:
+			return 2;
+		case 0xB0:
+			return 2;
+		case 0xC0:
+			return 1;
+		case 0xD0:
+			return 1;
+		case 0xE0:
+			return 2;
+		default:
+			return 0;
+	}
+}
+
+
+void PrintEvent(Event* event) {
+	switch(event->type) {
+		case 0xFF:
+			return PrintMetaEvent(event);
+		case 0xF0:
+		case 0xF7:
+			return PrintSysexEvent(event);
+		default: {
+			return PrintMidiEvent(event);
+			printf("Unrecognised event type: 0x%2x\n", event->type);
 		}
 	}
 }

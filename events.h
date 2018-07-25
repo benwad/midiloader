@@ -4,6 +4,7 @@
 
 typedef struct {
 	unsigned char type;
+	unsigned char subtype;
 	unsigned int size;
 	unsigned char* data;
 } Event;
@@ -60,6 +61,7 @@ unsigned int GetTempoBPM(unsigned char* buffer);
 struct TimeSignature GetTimeSignature(unsigned char* buffer);
 struct KeySignature GetKeySignature(unsigned char* buffer);
 void PrintFileInfo(FileInfo* fileInfo);
+unsigned int SizeForMidiEvent(Event event);
 void PrintEvent(Event* event);
 union TimeDivision GetTimeDivision(unsigned short tDivData);
 enum TimeDivType GetTimeDivisionType(unsigned short timeDivData);
