@@ -96,14 +96,31 @@ unsigned int GetSysexEvent(unsigned char* data, Event* event)
 	return offset;
 }
 
-unsigned int GetMidiEvent(unsigned char* data, Event* event)
+unsigned int GetMidiEvent(unsigned char* data, Event* event, unsigned char runningStatus)
 {
 	printf("GetMidiEvent\n");
 	unsigned int offset = 0;
-	event->type = *(data + offset++);
-	event->subtype = '\0';
+	unsigned char typeByte = *(data + offset);
 
+	if (IsValidMidiEventType(typeByte)) {
+		event->type = typeByte;
+		++offset;
+	}
+	else {
+		if (runningStatus) {
+			event->type = runningStatus;
+			printf("Using running status %02x\n", runningStatus);
+		}
+		else {
+			printf("runningStatus is null, but no valid status found\n");
+		}
+	}
+
+	event->subtype = '\0';
 	event->size = SizeForMidiEvent(*event);
+	if (event->size == 0) {
+		printf("Could not resolve MIDI event size\n");
+	}
 
 	event->data = malloc(event->size);
 	memcpy(event->data, data + offset, event->size);
@@ -112,7 +129,6 @@ unsigned int GetMidiEvent(unsigned char* data, Event* event)
 	printf("MIDI event: 0x%02x\n", event->type);
 	return offset;
 }
-
 
 
 FileInfo* GetHeader( Chunk* chunk )
@@ -136,7 +152,7 @@ FileInfo* GetHeader( Chunk* chunk )
 }
 
 
-unsigned int GetEvent( unsigned char* data, Event* event )
+unsigned int GetEvent( unsigned char* data, Event* event, unsigned char runningStatus )
 {
 	unsigned char eventType = *data;
 
@@ -147,7 +163,7 @@ unsigned int GetEvent( unsigned char* data, Event* event )
 		case 0xF7:
 			return GetSysexEvent(data, event);
 		default: {
-			return GetMidiEvent(data, event);
+			return GetMidiEvent(data, event, runningStatus); /* only MIDI events can have running status */
 		}
 	}
 }
@@ -158,6 +174,7 @@ unsigned int GetTrack( unsigned char* data, Track* track )
 	int finished = 0;
 	Event* currentEvent = NULL;
 	unsigned int offset = 0;
+	unsigned char runningStatus = '\0';
 
 	while (!finished) {
 		printf("Track offset: %i\n", offset);
@@ -169,9 +186,10 @@ unsigned int GetTrack( unsigned char* data, Track* track )
 		printf("dTime: %lu\n", dTime);
 		offset += vlenSize;
 		Event* newEvent = (Event *)malloc(sizeof(Event));
-		unsigned int eventSize = GetEvent((data + offset), newEvent);
+		unsigned int eventSize = GetEvent((data + offset), newEvent, runningStatus);
 		offset += eventSize;
 		currentEvent = newEvent;
+		runningStatus = currentEvent->type;
 		PrintEvent(currentEvent);
 		printf("\n");
 		if ((currentEvent->type == 0xFF) && (currentEvent->subtype == 0x2F)) {
@@ -220,9 +238,7 @@ unsigned int LoadChunk( FILE* f, Chunk* chunk)
 	if (offset > 0) {
 		unsigned int sizebuffer[1];
 		offset += fread(sizebuffer, sizeof(unsigned int), 1, f);
-		PrintBytes((unsigned char *)sizebuffer, 4);
 		SwapEndianness32(sizebuffer);
-		PrintBytes((unsigned char *)sizebuffer, 4);
 		chunk->length = *sizebuffer;
 
 		printf("Chunk length: %i\n", chunk->length);

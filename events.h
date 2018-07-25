@@ -61,6 +61,7 @@ unsigned int GetTempoBPM(unsigned char* buffer);
 struct TimeSignature GetTimeSignature(unsigned char* buffer);
 struct KeySignature GetKeySignature(unsigned char* buffer);
 void PrintFileInfo(FileInfo* fileInfo);
+int IsValidMidiEventType(unsigned char typeByte);
 unsigned int SizeForMidiEvent(Event event);
 void PrintEvent(Event* event);
 union TimeDivision GetTimeDivision(unsigned short tDivData);

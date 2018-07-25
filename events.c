@@ -190,6 +190,19 @@ void PrintMidiEvent(Event* event)
 }
 
 
+int IsValidMidiEventType(unsigned char typeByte) {
+	unsigned char statusBits = (typeByte & 0xF0);
+	unsigned char validStatuses[7] = {0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0};
+	for (int i=0; i < 7; i++) {
+		if (statusBits == validStatuses[i]) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+
 unsigned int SizeForMidiEvent(Event event)
 {
 	/* First 4 bits of event type are the 'status' */
@@ -211,6 +224,7 @@ unsigned int SizeForMidiEvent(Event event)
 		case 0xE0:
 			return 2;
 		default:
+			printf("Can't find size for MIDI event type %02x\n", event.type);
 			return 0;
 	}
 }
