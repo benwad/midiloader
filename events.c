@@ -56,6 +56,19 @@ void PrintFileInfo(FileInfo* fileInfo)
 }
 
 
+void PrintSMPTEOffset(unsigned char* data)
+{
+	unsigned int hours = (unsigned int)data[0];
+	unsigned int minutes = (unsigned int)data[1];
+	unsigned int seconds = (unsigned int)data[2];
+	unsigned int frames = (unsigned int)data[3];
+	unsigned int subframes = (unsigned int)data[4];
+
+	printf("%uh%um%us + %u frames, %u 1/100 frames\n",
+		hours, minutes, seconds, frames, subframes);
+}
+
+
 void PrintMetaEvent(Event* event)
 {
 	switch(event->subtype) {
@@ -90,6 +103,12 @@ void PrintMetaEvent(Event* event)
 		{
 			unsigned int bpm = GetTempoBPM(event->data);
 			printf("Set tempo: %u BPM\n", bpm);
+			return;
+		}
+		case 0x54: // SMPTE offset
+		{
+			printf("SMPTE offset\n");
+			PrintSMPTEOffset(event->data);
 			return;
 		}
 		case 0x58: // Set time signature
