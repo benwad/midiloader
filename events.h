@@ -3,11 +3,18 @@
 
 
 typedef struct {
+	unsigned long time;
 	unsigned char type;
 	unsigned char subtype;
 	unsigned int size;
 	unsigned char* data;
 } Event;
+
+
+typedef struct EventNode {
+	Event* event;
+	struct EventNode* next;
+} EventNode;
 
 typedef struct {
 	unsigned char* type;
@@ -16,8 +23,7 @@ typedef struct {
 } Chunk;
 
 typedef struct {
-	Event* events;
-	unsigned int numEvents;
+	EventNode* events;
 } Track;
 
 enum TimeDivType {
@@ -42,8 +48,6 @@ typedef struct {
 	union TimeDivision timeDivision;
 } FileInfo;
 
-
-
 struct TimeSignature {
 	unsigned short numerator;
 	unsigned short denominator;
@@ -63,6 +67,7 @@ struct KeySignature GetKeySignature(unsigned char* buffer);
 void PrintFileInfo(FileInfo* fileInfo);
 int IsValidMidiEventType(unsigned char typeByte);
 unsigned int SizeForMidiEvent(Event event);
+unsigned char* GetTrackName(Track track);
 void PrintEvent(Event* event);
 union TimeDivision GetTimeDivision(unsigned short tDivData);
 enum TimeDivType GetTimeDivisionType(unsigned short timeDivData);

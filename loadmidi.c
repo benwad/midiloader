@@ -9,6 +9,7 @@
 
 #include "loadmidi.h"
 #include "events.h"
+#include "eventlist.h"
 #include "util.h"
 
 
@@ -152,8 +153,11 @@ unsigned int GetEvent( unsigned char* data, Event* event, unsigned char runningS
 }
 
 
-unsigned int GetTrack( unsigned char* data, Track* track )
+Track GetTrack( unsigned char* data )
 {
+	Track track;
+	track.events = NULL;
+
 	int finished = 0;
 	Event* currentEvent = NULL;
 	unsigned int offset = 0;
@@ -162,24 +166,29 @@ unsigned int GetTrack( unsigned char* data, Track* track )
 	while (!finished) {
 		unsigned long dTime;
 		unsigned int vlenSize = GetVLen(data+offset, &dTime);
-		printf("dTime: %lu\n", dTime);
 		offset += vlenSize;
 		Event* newEvent = (Event *)malloc(sizeof(Event));
+		newEvent->time = dTime;
 		unsigned int eventSize = GetEvent((data + offset), newEvent, runningStatus);
 		offset += eventSize;
+		if (track.events == NULL) {
+			track.events = (EventNode *)malloc(sizeof(EventNode));
+			track.events->event = newEvent;
+			track.events->next = NULL;
+		}
+		else {
+			PushEvent(track.events, newEvent);
+		}
 		currentEvent = newEvent;
 		runningStatus = currentEvent->type;
-		PrintEvent(currentEvent);
-		printf("\n");
 		if ((currentEvent->type == 0xFF) && (currentEvent->subtype == 0x2F)) {
 			// End of track
-			printf("Track ended\n");
 			finished = 1;
 			offset += 1;
 		}
 	}
 
-	return offset;
+	return track;
 }
 
 
@@ -191,8 +200,12 @@ int PrintChunk(Chunk* chunk)
 		return 0;
 	}
 	else if (strcmp((const char*)chunk->type, "MTrk") == 0) {
-		Track* track = (Track *)malloc(sizeof(Track));
-		unsigned int trackSize = GetTrack(chunk->data, track);
+		Track track = GetTrack(chunk->data);
+		unsigned char* trackName = GetTrackName(track);
+		if (trackName) {
+			printf("Track name: %s\n", trackName);
+		}
+		printf("Track has %i events\n", GetNumEvents(track.events));
 		return 0;
 	}
 	else {

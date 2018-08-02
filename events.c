@@ -155,6 +155,24 @@ void PrintMetaEvent(Event* event)
 }
 
 
+unsigned char* GetTrackName(Track track)
+{
+	EventNode* current = track.events;
+	while (current) {
+		if ((current->event->type == 0xFF) && (current->event->subtype == 0x03)) {
+			unsigned char* name = malloc(current->event->size + 1);
+			memcpy(name, current->event->data, current->event->size);
+			name[current->event->size] = '\0';
+			return name;
+		}
+
+		current = current->next;
+	}
+
+	return NULL;
+}
+
+
 void PrintSysexEvent(Event* event)
 {
 	printf("%02x SysEx event: 0x", event->type);
@@ -335,6 +353,7 @@ unsigned int SizeForMidiEvent(Event event)
 
 
 void PrintEvent(Event* event) {
+	printf("dTime: %lu\n", event->time);
 	switch(event->type) {
 		case 0xFF:
 			return PrintMetaEvent(event);
